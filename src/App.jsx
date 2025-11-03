@@ -74,65 +74,97 @@ function App() {
     return { totalDay, totalNight, totalHours };
   };
 
-  const handleSubmit = () => {
-    if (!formData.firstName || !formData.lastName || !formData.company || 
-        !formData.contractNumber || !formData.location || !formData.weekStart) {
-      alert('Veuillez remplir tous les champs obligatoires');
-      return;
-    }
+const handleSubmit = async () => {
+  if (!formData.firstName || !formData.lastName || !formData.company || 
+      !formData.contractNumber || !formData.location || !formData.weekStart) {
+    alert('Veuillez remplir tous les champs obligatoires');
+    return;
+  }
 
-    const totals = calculateTotals();
-    const endDate = weekDays.length > 0 ? weekDays[6] : null;
-    
-    const submissionData = {
-      salarie: {
-        prenom: formData.firstName,
-        nom: formData.lastName
-      },
-      entreprise: {
-        nom: formData.company,
-        numeroContrat: formData.contractNumber,
-        lieu: formData.location
-      },
-      agence: formData.agency,
-      periode: {
-        debut: formData.weekStart,
-        fin: endDate ? endDate.toISOString().split('T')[0] : '',
-        semaine: weekNumber,
-        annee: year
-      },
-      heures: weekDays.map((date, index) => {
-        const day = hours[index] || {};
-        return {
-          date: formatDate(date),
-          heuresJour: {
-            debut: day.dayStart || '',
-            fin: day.dayEnd || '',
-            pauseMeridienne: day.lunchBreak || 0,
-            total: calculateHoursDifference(day.dayStart, day.dayEnd, day.lunchBreak || 0)
-          },
-          heuresNuit: {
-            debut: day.nightStart || '',
-            fin: day.nightEnd || '',
-            total: calculateHoursDifference(day.nightStart, day.nightEnd, 0)
-          },
-          totalJournee: calculateHoursDifference(day.dayStart, day.dayEnd, day.lunchBreak || 0) + 
-                        calculateHoursDifference(day.nightStart, day.nightEnd, 0),
-          observations: day.observations || ''
-        };
-      }),
-      totaux: {
-        heuresJour: totals.totalDay,
-        heuresNuit: totals.totalNight,
-        totalGeneral: totals.totalHours
-      },
-      commentaires: comments,
-      statutMission: missionStatus
-    };
-    
-    console.log('Données soumises:', submissionData);
-    alert('Relevé d\'heures soumis avec succès!\n\nVoir la console pour les données JSON complètes.');
+  // IMPORTANT : Ajoutez l'email du client
+  const clientEmail = prompt('Email du client pour validation :');
+  if (!clientEmail) {
+    alert('L\'email du client est obligatoire pour la validation');
+    return;
+  }
+
+  const totals = calculateTotals();
+  const endDate = weekDays.length > 0 ? weekDays[6] : null;
+  
+  const submissionData = {
+    salarie: {
+      prenom: formData.firstName,
+      nom: formData.lastName
+    },
+    entreprise: {
+      nom: formData.company,
+      numeroContrat: formData.contractNumber,
+      lieu: formData.location,
+      email: clientEmail  // ← Email du client
+    },
+    agence: formData.agency,
+    periode: {
+      debut: formData.weekStart,
+      fin: endDate ? endDate.toISOString().split('T')[0] : '',
+      semaine: weekNumber,
+      annee: year
+    },
+    heures: weekDays.map((date, index) => {
+      const day = hours[index] || {};
+      return {
+        date: formatDate(date),
+        heuresJour: {
+          debut: day.dayStart || '',
+          fin: day.dayEnd || '',
+          pauseMeridienne: day.lunchBreak || 0,
+          total: calculateHoursDifference(day.dayStart, day.dayEnd, day.lunchBreak || 0)
+        },
+        heuresNuit: {
+          debut: day.nightStart || '',
+          fin: day.nightEnd || '',
+          total: calculateHoursDifference(day.nightStart, day.nightEnd, 0)
+        },
+        totalJournee: calculateHoursDifference(day.dayStart, day.dayEnd, day.lunchBreak || 0) + 
+                      calculateHoursDifference(day.nightStart, day.nightEnd, 0),
+        observations: day.observations || ''
+      };
+    }),
+    totaux: {
+      heuresJour: totals.totalDay,
+      heuresNuit: totals.totalNight,
+      totalGeneral: totals.totalHours
+    },
+    commentaires: comments,
+    statutMission: missionStatus
   };
+  
+  try {
+    // URL du webhook n8n
+    const N8N_WEBHOOK_URL = 'https://votre-instance-n8n.com/webhook/timesheet-submit';
+    
+    const response = await fetch(N8N_WEBHOOK_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(submissionData)
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      alert(`✅ ${result.message}\n\nID: ${result.recordId}`);
+      
+      // Réinitialiser le formulaire
+      window.location.reload();
+    } else {
+      alert(`❌ Erreur: ${result.message}`);
+    }
+  } catch (error) {
+    console.error('Erreur:', error);
+    alert('❌ Erreur lors de la soumission. Veuillez réessayer.');
+  }
+};
 
   const totals = calculateTotals();
 
